@@ -1,0 +1,23 @@
+{
+  "name": "deepseek-camera-server",
+  "version": "1.0.0",
+  "description": "DeepSeek Camera Server with WebRTC",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "dependencies": {
+    "ali-oss": "^6.22.0",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.1",
+    "koa": "^2.15.0",
+    "koa-bodyparser": "^4.4.1",
+    "koa-router": "^12.0.1",
+    "koa-static": "^5.0.0",
+    "socket.io": "^4.7.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
