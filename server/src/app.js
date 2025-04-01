@@ -34,10 +34,13 @@ app.use(koaStatic(path.join(__dirname, '../public')));
 
 // 创建路由
 const router = require('./routes');
+const apiRouter = require('./routes/api');
 
 // 使用路由
 app.use(router.routes());
 app.use(router.allowedMethods());
+app.use(apiRouter.routes());
+app.use(apiRouter.allowedMethods());
 
 // 启动服务器
 const PORT = process.env.PORT || 3000;
