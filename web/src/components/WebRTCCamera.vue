@@ -140,6 +140,7 @@ const initWebRTC = async () => {
 
 // 捕获视频帧并发送到服务器
 const captureFrame = () => {
+  console.log(videoRef, 'videoRef')
   if (!videoRef.value || !canvasRef.value || !socket) return
   
   const video = videoRef.value

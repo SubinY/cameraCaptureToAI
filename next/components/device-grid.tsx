@@ -4,12 +4,14 @@ import { useState } from "react"
 import { VacuumCard } from "@/components/devices/vacuum-card"
 import { LightCard } from "@/components/devices/light-card"
 import { MusicCard } from "@/components/devices/music-card"
+import { FluidSphereCard } from "@/components/devices/fluid-sphere-card"
 
 export function DeviceGrid() {
   const [activeDevices, setActiveDevices] = useState({
     vacuum: true,
     light: true,
     music: true,
+    fluidSphere: true,
   })
 
   const toggleDevice = (device: keyof typeof activeDevices) => {
@@ -27,6 +29,7 @@ export function DeviceGrid() {
         <VacuumCard isActive={activeDevices.vacuum} onToggle={() => toggleDevice("vacuum")} />
         <LightCard isActive={activeDevices.light} onToggle={() => toggleDevice("light")} />
         <MusicCard isActive={activeDevices.music} onToggle={() => toggleDevice("music")} />
+        <FluidSphereCard isActive={activeDevices.fluidSphere} onToggle={() => toggleDevice("fluidSphere")} />
       </div>
     </section>
   )

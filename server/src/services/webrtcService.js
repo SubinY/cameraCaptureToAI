@@ -125,14 +125,35 @@ function initWebRTCService(io) {
             // 提取媒体类型
             const mediaType = mediaLine.match(/m=(\w+)/)[1];
             
-            // 添加媒体行，保持与offer相同的顺序
-            answerSdp += 'm=' + mediaType + ' 9 UDP/TLS/RTP/SAVPF 0\r\n';
+            // 添加媒体行，保持与offer相同的顺序和编解码器配置
+            // 从媒体行中提取编解码器配置
+            const codecMatch = mediaLine.match(/m=\w+ \d+ [\w\/]+ ([\d ]+)/i);
+            const codecs = codecMatch ? codecMatch[1] : '0';
+            answerSdp += 'm=' + mediaType + ' 9 UDP/TLS/RTP/SAVPF ' + codecs + '\r\n';
             answerSdp += 'c=IN IP4 0.0.0.0\r\n';
-            answerSdp += 'a=ice-ufrag:0\r\n';
-            answerSdp += 'a=ice-pwd:0\r\n';
+            const iceUfrag = Math.random().toString(36).substring(2, 6);
+            // 确保ice-pwd长度至少为22个字符，符合WebRTC标准
+            const icePwd = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 8) + 
+                           Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 8);
+            answerSdp += `a=ice-ufrag:${iceUfrag}\r\n`;
+            answerSdp += `a=ice-pwd:${icePwd}\r\n`;
             answerSdp += 'a=fingerprint:sha-256 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00\r\n';
             answerSdp += 'a=setup:active\r\n';
             answerSdp += 'a=mid:' + i + '\r\n';
+            answerSdp += 'a=rtcp-mux\r\n';
+            
+            // 提取rtpmap和fmtp行，确保编解码器信息正确
+            const rtpmapLines = mediaLine.match(/a=rtpmap:[\d]+ [\w\/]+(?:[\d]+)?/g) || [];
+            for (const rtpmap of rtpmapLines) {
+              answerSdp += rtpmap + '\r\n';
+            }
+            
+            // 提取fmtp行
+            const fmtpLines = mediaLine.match(/a=fmtp:[\d]+ [^\r\n]+/g) || [];
+            for (const fmtp of fmtpLines) {
+              answerSdp += fmtp + '\r\n';
+            }
+            
             answerSdp += 'a=sendrecv\r\n';
             answerSdp += 'a=end-of-candidates\r\n';
           }
@@ -140,13 +161,34 @@ function initWebRTCService(io) {
           // 如果无法解析媒体行，使用默认的应答格式
           answerSdp += 'a=group:BUNDLE 0\r\n';
           answerSdp += 'a=msid-semantic: WMS\r\n';
-          answerSdp += 'm=application 9 UDP/TLS/RTP/SAVPF 0\r\n';
+          // 使用video媒体类型和常用的VP8编解码器
+          answerSdp += 'm=video 9 UDP/TLS/RTP/SAVPF 96 97 98 99 100\r\n';
           answerSdp += 'c=IN IP4 0.0.0.0\r\n';
-          answerSdp += 'a=ice-ufrag:0\r\n';
-          answerSdp += 'a=ice-pwd:0\r\n';
+          const iceUfrag = Math.random().toString(36).substring(2, 6);
+          // 确保ice-pwd长度至少为22个字符，符合WebRTC标准
+          const icePwd = Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 8) + 
+                         Math.random().toString(36).substring(2, 8) + Math.random().toString(36).substring(2, 8);
+          answerSdp += `a=ice-ufrag:${iceUfrag}\r\n`;
+          answerSdp += `a=ice-pwd:${icePwd}\r\n`;
           answerSdp += 'a=fingerprint:sha-256 00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00\r\n';
           answerSdp += 'a=setup:active\r\n';
           answerSdp += 'a=mid:0\r\n';
+          answerSdp += 'a=rtcp-mux\r\n';
+          
+          // 添加常用的视频编解码器
+          answerSdp += 'a=rtpmap:96 VP8/90000\r\n';
+          answerSdp += 'a=rtpmap:97 VP9/90000\r\n';
+          answerSdp += 'a=rtpmap:98 H264/90000\r\n';
+          answerSdp += 'a=rtcp-fb:96 nack\r\n';
+          answerSdp += 'a=rtcp-fb:96 nack pli\r\n';
+          answerSdp += 'a=rtcp-fb:96 ccm fir\r\n';
+          answerSdp += 'a=rtcp-fb:97 nack\r\n';
+          answerSdp += 'a=rtcp-fb:97 nack pli\r\n';
+          answerSdp += 'a=rtcp-fb:97 ccm fir\r\n';
+          answerSdp += 'a=rtcp-fb:98 nack\r\n';
+          answerSdp += 'a=rtcp-fb:98 nack pli\r\n';
+          answerSdp += 'a=rtcp-fb:98 ccm fir\r\n';
+          
           answerSdp += 'a=sendrecv\r\n';
           answerSdp += 'a=end-of-candidates\r\n';
         }
@@ -205,7 +247,6 @@ async function handleImageData(userId, imageData) {
     
     // 创建临时文件路径
     const frameFilePath = path.join(tempDir, `${userId}_${Date.now()}.jpg`);
-    
     // 保存图像数据到文件
     fs.writeFileSync(frameFilePath, imageData);
     
