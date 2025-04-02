@@ -1,15 +1,18 @@
+/**
+ * 主路由文件 - 集中管理所有路由
+ */
+
 const Router = require('koa-router');
+const apiRoutes = require('./api');
+const apiController = require('../controllers/apiController');
+
 const router = new Router();
 
 // 健康检查路由
-router.get('/health', (ctx) => {
-  ctx.body = { status: 'ok' };
-});
+router.get('/health', apiController.getHealth);
 
-// 获取行为统计数据路由
-router.get('/api/statistics', (ctx) => {
-  // 这个路由将由Socket.IO处理，这里只是提供一个HTTP接口
-  ctx.body = { message: '请使用WebSocket连接获取实时统计数据' };
-});
+// 使用API路由
+router.use(apiRoutes.routes());
+router.use(apiRoutes.allowedMethods());
 
 module.exports = router;

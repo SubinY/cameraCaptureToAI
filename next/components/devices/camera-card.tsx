@@ -1,14 +1,23 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { WebRTCCamera } from "@/components/webrtc-camera"
-import { BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts"
-import { Camera, BarChart2 } from "lucide-react"
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { WebRTCCamera } from "@/components/webrtc-camera";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from "recharts";
+import { Camera, BarChart2 } from "lucide-react";
 
 interface CameraCardProps {
-  isActive: boolean
+  isActive: boolean;
 }
 
 // 颜色配置
@@ -21,41 +30,42 @@ const COLORS = [
 ];
 
 export function CameraCard({ isActive }: CameraCardProps) {
-  const [showCamera, setShowCamera] = useState(false)
+  const [showCamera, setShowCamera] = useState(false);
   const [analysisData, setAnalysisData] = useState<any>({
     statistics: {
       work: { count: 45 },
       eating: { count: 12 },
       drinking_water: { count: 8 },
       phone: { count: 15 },
-      other: { count: 5 }
-    }
-  })
-
-  // 定义行为名称转换函数
-  const getBehaviorName = (key: string) => {
-    const names: Record<string, string> = {
-      work: '工作',
-      eating: '吃东西',
-      drinking_water: '喝水',
-      drinking_beverage: '喝饮料',
-      phone: '玩手机',
-      sleeping: '睡觉',
-      other: '其他'
-    }
-    return names[key] || key
-  }
+      other: { count: 5 },
+    },
+  });
 
   // 转换数据为图表格式
-  const chartData = Object.entries(analysisData.statistics || {}).map(([key, value]: [string, any]) => ({
-    name: getBehaviorName(key),
-    value: value.count,
-  }))
+  const chartData = Object.entries(analysisData.statistics || {}).map(
+    ([key, value]: [string, any]) => ({
+      name: getBehaviorName(key),
+      value: value.count,
+    })
+  );
+
+  const getBehaviorName = (key: string) => {
+    const names: Record<string, string> = {
+      work: "工作",
+      eating: "吃东西",
+      drinking_water: "喝水",
+      drinking_beverage: "喝饮料",
+      phone: "玩手机",
+      sleeping: "睡觉",
+      other: "其他",
+    };
+    return names[key] || key;
+  };
 
   const handleAnalysisResult = (data: any) => {
-    console.log('收到分析结果:', data)
-    setAnalysisData(data)
-  }
+    console.log("收到分析结果:", data);
+    setAnalysisData(data);
+  };
 
   return (
     <Card className="tech-card card-border">
@@ -65,12 +75,12 @@ export function CameraCard({ isActive }: CameraCardProps) {
             <Camera className="h-5 w-5 mr-2 text-primary" />
             摄像头
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setShowCamera(!showCamera)}
           >
-            {showCamera ? '关闭摄像头' : '打开摄像头'}
+            {showCamera ? "关闭摄像头" : "打开摄像头"}
           </Button>
         </CardTitle>
       </CardHeader>
@@ -97,10 +107,15 @@ export function CameraCard({ isActive }: CameraCardProps) {
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) =>
+                    `${name} ${(percent * 100).toFixed(0)}%`
+                  }
                 >
                   {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -111,5 +126,5 @@ export function CameraCard({ isActive }: CameraCardProps) {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

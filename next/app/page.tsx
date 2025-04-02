@@ -5,7 +5,6 @@ import { DeviceControls } from "@/components/device-controls";
 import { SideNav } from "@/components/side-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { MobileHeader } from "@/components/mobile-header";
-import { DataFeedback } from "@/components/data-feedback";
 
 export default function Home() {
   return (

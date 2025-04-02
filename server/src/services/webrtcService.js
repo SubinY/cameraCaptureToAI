@@ -1,64 +1,13 @@
-const { analyzeImage, BEHAVIOR_TYPES } = require('./imageAnalysisService');
-const fs = require('fs');
-const path = require('path');
-
-const { promisify } = require('util');
-
-// 确保temp目录存在
-const tempDir = path.join(__dirname, '../../temp');
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true });
-}
-
-// 临时文件保留的最大时间（毫秒）
-const MAX_TEMP_FILE_AGE = 5 * 60 * 1000; // 5分钟
-
-// 存储活跃的WebRTC连接
-const activeConnections = new Map();
-
-// 存储行为统计数据
-const behaviorStatistics = new Map();
-
 /**
- * 删除临时文件
- * @param {string} filePath - 文件路径
+ * WebRTC服务 - 处理WebRTC连接和信令
  */
-function deleteTempFile(filePath) {
-  try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      console.log(`已删除临时文件: ${filePath}`);
-    }
-  } catch (error) {
-    console.error(`删除临时文件失败: ${filePath}, 错误: ${error.message}`);
-  }
-}
 
-/**
- * 清理过期的临时文件
- */
-async function cleanupTempFiles() {
-  try {
-    const now = Date.now();
-    const readdir = promisify(fs.readdir);
-    const stat = promisify(fs.stat);
-    
-    // 读取temp目录中的所有文件
-    const files = await readdir(tempDir);
-    
-    for (const file of files) {
-      const filePath = path.join(tempDir, file);
-      const fileStat = await stat(filePath);
-      
-      // 检查文件是否为普通文件且已超过最大保留时间
-      if (fileStat.isFile() && now - fileStat.mtime.getTime() > MAX_TEMP_FILE_AGE) {
-        deleteTempFile(filePath);
-      }
-    }
-  } catch (error) {
-    console.error(`清理临时文件失败: ${error.message}`);
-  }
-}
+const { getUserConnection, addUserConnection, updateUserConnection, removeUserConnection } = require('../models/userModel');
+const { updateBehaviorStatistics, getBehaviorStatistics } = require('../models/behaviorModel');
+const { analyzeImage } = require('./imageAnalysisService');
+const { tempDir, deleteTempFile, saveImageToTemp, startCleanupTask } = require('../utils/fileUtils');
+
+
 
 /**
  * 初始化WebRTC服务
@@ -83,6 +32,9 @@ function initWebRTCService(io) {
     socket.on('webrtc-join', async ({ userId }) => {
       console.log(`客户端加入WebRTC会话: ${userId}`);
       
+      // 添加用户连接
+      addUserConnection(userId, socket);
+      
       // 通知客户端准备WebRTC连接
       socket.emit('webrtc-ready');
     });
@@ -91,13 +43,6 @@ function initWebRTCService(io) {
     socket.on('webrtc-offer', async ({ userId, offer }) => {
       try {
         console.log(`收到WebRTC offer: ${userId}`);
-        
-        // 在纯信令模式下，服务器只需存储连接信息，不需要创建RTCPeerConnection
-        activeConnections.set(userId, {
-          socket,
-          lastAnalysisTime: 0,
-          frameCount: 0
-        });
         
         // 从offer中提取媒体行信息，确保应答与offer的m-lines顺序一致
         const offerSdp = offer.sdp;
@@ -219,13 +164,12 @@ function initWebRTCService(io) {
       console.log(`客户端断开连接: ${socket.id}`);
       
       // 清理连接资源
-      activeConnections.delete(socket.id);
+      removeUserConnection(socket.id);
     });
   });
   
-  // 设置定时清理临时文件的任务
-  setInterval(cleanupTempFiles, MAX_TEMP_FILE_AGE / 2); // 每2.5分钟清理一次
-  console.log('已设置临时文件自动清理任务');
+  // 启动定时清理临时文件的任务
+  startCleanupTask();
 
 }
 
@@ -235,30 +179,29 @@ function initWebRTCService(io) {
  * @param {Buffer} imageData - 图像数据
  */
 async function handleImageData(userId, imageData) {
-  const connection = activeConnections.get(userId);
+  const connection = getUserConnection(userId);
   if (!connection) return;
   
   try {
-    // 确保temp目录存在
-    const tempDir = path.join(__dirname, '../../temp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    
-    // 创建临时文件路径
-    const frameFilePath = path.join(tempDir, `${userId}_${Date.now()}.jpg`);
-    // 保存图像数据到文件
-    fs.writeFileSync(frameFilePath, imageData);
+    // 保存图像到临时文件
+    const frameFilePath = saveImageToTemp(imageData, userId);
     
     // 分析图像
     const analysisResult = await analyzeImage(imageData);
     
     // 分析完成后删除临时文件
     deleteTempFile(frameFilePath);
-    console.log(analysisResult, 'analysisResult')
+    console.log(analysisResult, 'analysisResult');
+    
     // 更新行为统计
     updateBehaviorStatistics(userId, analysisResult.result.type);
     
+    // 更新用户连接信息
+    updateUserConnection(userId, {
+      frameCount: connection.frameCount + 1,
+      lastAnalysisTime: Date.now()
+    });
+    console.log(analysisResult.result, 'analysisResult.result')
     // 发送分析结果给客户端
     connection.socket.emit('analysis-result', {
       result: analysisResult.result,
@@ -270,71 +213,7 @@ async function handleImageData(userId, imageData) {
   }
 }
 
-// 存储用户当前行为信息
-const userBehaviors = new Map();
 
-/**
- * 更新行为统计
- * @param {string} userId - 用户ID
- * @param {number} behaviorType - 行为类型
- */
-function updateBehaviorStatistics(userId, behaviorType) {
-  const now = Date.now();
-  
-  // 获取用户当前行为信息
-  const userBehavior = userBehaviors.get(userId) || {
-    currentBehaviorType: null,
-    currentBehaviorStartTime: null
-  };
-  
-  // 如果行为类型改变，记录上一个行为的持续时间
-  if (userBehavior.currentBehaviorType !== null && userBehavior.currentBehaviorType !== behaviorType) {
-    const duration = now - userBehavior.currentBehaviorStartTime;
-    
-    // 获取或创建统计数据
-    let stats = behaviorStatistics.get(userBehavior.currentBehaviorType) || { count: 0, duration: 0 };
-    
-    // 更新统计数据
-    stats.duration += duration;
-    behaviorStatistics.set(userBehavior.currentBehaviorType, stats);
-  }
-  
-  // 如果是新的行为类型，增加计数
-  if (userBehavior.currentBehaviorType !== behaviorType) {
-    // 获取或创建统计数据
-    let stats = behaviorStatistics.get(behaviorType) || { count: 0, duration: 0 };
-    
-    // 更新计数
-    stats.count += 1;
-    behaviorStatistics.set(behaviorType, stats);
-    
-    // 更新当前行为
-    userBehavior.currentBehaviorType = behaviorType;
-    userBehavior.currentBehaviorStartTime = now;
-    
-    // 保存用户行为信息
-    userBehaviors.set(userId, userBehavior);
-  }
-}
-
-/**
- * 获取行为统计数据
- * @returns {Object} - 行为统计数据
- */
-function getBehaviorStatistics() {
-  const statistics = {};
-  
-  // 转换统计数据格式
-  for (const [behaviorType, data] of behaviorStatistics.entries()) {
-    const behaviorCode = BEHAVIOR_TYPES[behaviorType]?.code || 'unknown';
-    statistics[behaviorCode] = {
-      count: data.count,
-      duration: data.duration
-    };
-  }
-  
-  return statistics;
-}
 
 // 导出模块
 module.exports = {
