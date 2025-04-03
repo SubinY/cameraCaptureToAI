@@ -1,108 +1,27 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import * as THREE from "three";
+import { WaveSphere3D } from "@/components/3d/wave-sphere";
+import { useDataSimulator } from "@/components/3d/data-simulator";
+import { defaultWaveConfig } from "@/components/3d/config";
 
-interface FluidSphereCardProps {
+interface WaveSphereCardProps {
   isActive?: boolean;
   onToggle?: () => void;
 }
 
-// Shader material for fluid effect
-const fragmentShader = `
-varying vec2 vUv;
-varying vec3 vNormal;
-varying vec3 vPosition;
-uniform float uTime;
-uniform vec3 uColor1;
-uniform vec3 uColor2;
-
-void main() {
-  // Create fluid-like effect with sine waves
-  float noise = sin(vPosition.x * 10.0 + uTime) * sin(vPosition.y * 10.0 + uTime) * sin(vPosition.z * 10.0 + uTime) * 0.5 + 0.5;
-  
-  // Mix two colors based on the noise
-  vec3 color = mix(uColor1, uColor2, noise);
-  
-  // Add lighting effect based on normals
-  float lighting = dot(vNormal, normalize(vec3(1.0)));
-  color += lighting * 0.1;
-  
-  gl_FragColor = vec4(color, 1.0);
-}
-`;
-
-const vertexShader = `
-varying vec2 vUv;
-varying vec3 vNormal;
-varying vec3 vPosition;
-uniform float uTime;
-
-void main() {
-  vUv = uv;
-  vNormal = normal;
-  
-  // Create displacement effect
-  vec3 pos = position;
-  float displacement = sin(pos.x * 5.0 + uTime) * sin(pos.y * 5.0 + uTime) * sin(pos.z * 5.0 + uTime) * 0.1;
-  pos += normal * displacement;
-  
-  vPosition = pos;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-}
-`;
-
-// Fluid Sphere component that will be rendered in the Canvas
-function FluidSphere({ isActive }: { isActive: boolean }) {
-  const meshRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<THREE.ShaderMaterial>(null);
-
-  // Animation loop
-  useFrame(({ clock }) => {
-    if (meshRef.current && materialRef.current && isActive) {
-      // Update time uniform for shader animation
-      materialRef.current.uniforms.uTime.value = clock.getElapsedTime();
-
-      // Gentle rotation
-      meshRef.current.rotation.y += 0.003;
-      meshRef.current.rotation.x += 0.001;
-    }
-  });
-
-  // Colors for the fluid effect
-  const color1 = isActive
-    ? new THREE.Color("#00D2FF")
-    : new THREE.Color("#0A1929");
-  const color2 = isActive
-    ? new THREE.Color("#0062FF")
-    : new THREE.Color("#0F2942");
-
-  return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[1, 64, 64]} />
-      <shaderMaterial
-        ref={materialRef}
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
-        uniforms={{
-          uTime: { value: 0 },
-          uColor1: { value: color1 },
-          uColor2: { value: color2 },
-        }}
-      />
-    </mesh>
-  );
-}
-
-export function FluidSphereCard({
+export function WaveSphereCard({
   isActive: initialActive = false,
   onToggle,
-}: FluidSphereCardProps) {
+}: WaveSphereCardProps) {
   const [isActive, setIsActive] = useState(initialActive);
-  const [waveIntensity, setWaveIntensity] = useState(50);
+  const [waveIntensity, setWaveIntensity] = useState(defaultWaveConfig.intensity);
+  
+  // 使用数据模拟器生成模拟数据
+  const { data } = useDataSimulator(isActive, 1000); // 1秒更新一次数据
 
   const handleToggle = () => {
     const newState = !isActive;
@@ -124,8 +43,8 @@ export function FluidSphereCard({
     >
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h3 className="font-medium text-white">Fluid Sphere</h3>
-          <p className="text-xs text-blue-200/70">Interactive</p>
+          <h3 className="font-medium text-white">波浪球体</h3>
+          <p className="text-xs text-blue-200/70">数据可视化</p>
         </div>
 
         <label className="relative inline-flex items-center cursor-pointer toggle-switch-animation">
@@ -170,16 +89,32 @@ export function FluidSphereCard({
           {/* Three.js Canvas */}
           <Canvas camera={{ position: [0, 0, 2.5] }}>
             <ambientLight intensity={0.5} />
-            <FluidSphere isActive={isActive} />
+            <WaveSphere3D 
+              isActive={isActive} 
+              waveIntensity={waveIntensity} 
+              data={data}
+            />
             {isActive && <OrbitControls enableZoom={false} enablePan={false} />}
           </Canvas>
         </div>
       </div>
 
-      {/* Wave Intensity Control */}
+      {/* 数据可视化指示器 */}
+      <div className="mt-2 mb-3">
+        <div className="flex items-center justify-between text-xs text-blue-200/70">
+          <span>波浪高度: {Math.round(data.value1 * 100)}%</span>
+          <span>波浪频率: {Math.round(data.value2 * 100)}%</span>
+        </div>
+        <div className="flex items-center justify-between text-xs text-blue-200/70 mt-1">
+          <span>波浪速度: {Math.round(data.value3 * 100)}%</span>
+          <span>声纹强度: {Math.round(data.value4 * 100)}%</span>
+        </div>
+      </div>
+
+      {/* 波浪强度控制 */}
       <div className="mt-2">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-blue-200/70">Wave Intensity</span>
+          <span className="text-xs text-blue-200/70">波浪强度</span>
           <span className="text-xs font-medium text-white">
             {waveIntensity}%
           </span>
