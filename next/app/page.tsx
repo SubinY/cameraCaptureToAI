@@ -1,10 +1,10 @@
 import { ModeToggle } from "@/components/mode-toggle";
 import { RoomView } from "@/components/room-view";
-import { RoomsList } from "@/components/rooms-list";
 import { DeviceControls } from "@/components/device-controls";
 import { SideNav } from "@/components/side-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { MobileHeader } from "@/components/mobile-header";
+import { HistoryCard } from "@/components/analysis-cards";
 
 export default function Home() {
   return (
@@ -23,25 +23,23 @@ export default function Home() {
 
         {/* 主内容区域 */}
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-milk-white">
-          {/* 主视图区域 */}
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-milk-white rounded-xl">
-            {/* 左侧大视图 */}
-            <div className="md:col-span-2 h-full">
+          {/* 主视图区域 - 自适应高度 */}
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3 p-3 bg-milk-white rounded-xl">
+            {/* 左侧大视图 - 固定最小高度 */}
+            <div className="md:col-span-3 h-full min-h-[400px]">
               <RoomView />
             </div>
 
-            {/* 右侧房间列表 - 在小屏幕上隐藏 */}
-            <div className="hidden md:block md:col-span-1 h-full">
-              <RoomsList />
+            {/* 右侧历史记录 - 自适应宽高，带滚动条 */}
+            <div className="hidden md:block md:col-span-1 h-full overflow-hidden">
+              <HistoryCard className="h-full" />
             </div>
           </div>
 
-          {/* 底部区域 - 设备控制和数据分析 */}
-          <div className="hidden md:block h-[280px] p-4 border-t border-milk-light overflow-y-auto">
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <DeviceControls />
-              </div>
+          {/* 底部区域 - 固定最小高度300px */}
+          <div className="hidden md:block flex-shrink-0 h-[310px] min-h-[310px] p-3 border-t border-milk-light">
+            <div className="grid grid-cols-3 gap-3 h-full w-full">
+              <DeviceControls />
             </div>
           </div>
         </div>
