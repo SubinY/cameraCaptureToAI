@@ -9,14 +9,14 @@ import { DebugPanel, DebugToggle } from "@/components/debug-panel";
 
 export default function Home() {
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-4">
+    <div className="min-h-screen w-full bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center p-2 sm:p-4">
       {/* 移动端顶部导航 - 仅在小屏幕显示 */}
       <div className="fixed top-0 left-0 right-0 z-50 md:hidden">
         <MobileHeader />
       </div>
 
       {/* 主卡片容器 - 四周留白 */}
-      <div className="w-full max-w-[1400px] h-[calc(100vh-2rem)] mt-16 md:mt-0 bg-milk-white rounded-3xl overflow-hidden shadow-xl flex card-border">
+      <div className="w-full max-w-[1400px] h-[calc(100vh-1rem)] sm:h-[calc(100vh-2rem)] mt-16 md:mt-0 bg-milk-white rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl flex card-border">
         {/* 左侧小导航 - 仅在中等及以上屏幕显示 */}
         <div className="hidden md:block border-r border-milk-light">
           <SideNav />
@@ -25,9 +25,9 @@ export default function Home() {
         {/* 主内容区域 */}
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-milk-white">
           {/* 主视图区域 - 自适应高度 */}
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3 p-3 bg-milk-white rounded-xl">
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-2 sm:gap-3 p-2 sm:p-3 bg-milk-white rounded-xl">
             {/* 左侧大视图 - 固定最小高度 */}
-            <div className="md:col-span-3 h-full min-h-[400px]">
+            <div className="md:col-span-3 h-full min-h-[300px] sm:min-h-[400px]">
               <RoomView />
             </div>
 

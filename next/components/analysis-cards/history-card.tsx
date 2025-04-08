@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDebug } from "@/lib/debug-context";
 
 interface InteractionEvent {
   id: string;
@@ -31,9 +32,26 @@ const HistoryCard = ({ className }: HistoryCardProps) => {
   const [events, setEvents] = useState<InteractionEvent[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { useMockData } = useDebug();
+  const prevMockDataRef = useRef(useMockData);
 
   // Simulate event generation
   useEffect(() => {
+    // Clear events when switching from mock to real mode
+    if (prevMockDataRef.current !== useMockData) {
+      setEvents([]);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    }
+    prevMockDataRef.current = useMockData;
+
+    // Only generate mock events if in mock mode
+    if (!useMockData) {
+      return;
+    }
+
     // Initial load
     const initialEvents: InteractionEvent[] = [
       {
@@ -153,9 +171,12 @@ const HistoryCard = ({ className }: HistoryCardProps) => {
     scheduleNextEvent();
 
     return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     };
-  }, []);
+  }, [useMockData]);
 
   // Format relative time
   const formatRelativeTime = (timestamp: string) => {
@@ -267,119 +288,77 @@ _Generated at ${now.toLocaleTimeString()}_
   };
 
   return (
-    <Card className={cn("overflow-hidden h-full flex flex-col", className)}>
-      <CardHeader className="pb-2 flex-shrink-0">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-lg md:text-xl">
-            Interaction History
-          </CardTitle>
+    <Card className={cn("flex flex-col h-full", className)}>
+      <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base sm:text-lg font-medium">交互历史</CardTitle>
           <Button
             variant="outline"
             size="sm"
-            className="h-8"
+            className="h-8 px-2 sm:px-3 text-xs sm:text-sm"
             onClick={generateDailyReport}
           >
-            <Download className="h-4 w-4 mr-1" />
-            Export
+            <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">导出日报</span>
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="p-0 flex-1 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="w-full">
-            <div className="p-4">
-              <div className="max-h-[260px] relative pl-6 border-l border-gray-200 dark:border-gray-700 space-y-4">
-                <AnimatePresence initial={false}>
-                  {events.map((event) => (
-                    <motion.div
-                      key={event.id}
-                      className="relative"
-                      initial={{ opacity: 0, y: -20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {/* Timeline dot */}
-                      <div
-                        className={cn(
-                          "absolute left-[-14px] top-1 w-5 h-5 rounded-full flex items-center justify-center",
-                          event.event_type === "voice"
-                            ? "bg-blue-100 dark:bg-blue-900"
-                            : event.event_type === "alert"
-                            ? "bg-red-100 dark:bg-red-900"
-                            : "bg-green-100 dark:bg-green-900"
-                        )}
-                      >
-                        <span className={cn("h-4 w-4", getEventColor(event))}>
-                          {getEventIcon(event.event_type)}
+      <CardContent className="p-0 sm:p-2 flex-1 overflow-hidden">
+        <ScrollArea ref={scrollAreaRef} className="h-full">
+          <div className="p-2 sm:p-3 space-y-2 sm:space-y-3">
+            <AnimatePresence mode="popLayout">
+              {events.map((event) => (
+                <motion.div
+                  key={event.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors"
+                >
+                  <div className="flex-shrink-0 mt-1">
+                    {event.event_type === "voice" && (
+                      <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+                    )}
+                    {event.event_type === "alert" && (
+                      <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500" />
+                    )}
+                    {event.event_type === "action" && (
+                      <MousePointer className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+                        <span className="text-xs sm:text-sm text-muted-foreground">
+                          {formatRelativeTime(event.timestamp)}
                         </span>
                       </div>
-
-                      {/* Event content */}
-                      <div className="mb-2">
-                        <div className="flex items-center justify-between flex-wrap">
-                          <div className="flex items-center">
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "capitalize text-xs",
-                                event.event_type === "voice"
-                                  ? "text-blue-500 border-blue-300"
-                                  : event.event_type === "alert"
-                                  ? "text-red-500 border-red-300"
-                                  : "text-green-500 border-green-300"
-                              )}
-                            >
-                              {event.event_type}
-                            </Badge>
-                            <span className="ml-2 text-xs text-muted-foreground flex items-center">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {formatRelativeTime(event.timestamp)}
-                            </span>
-                          </div>
-                          {event.severity > 1 && (
-                            <div className="text-amber-500 mt-1 sm:mt-0">
-                              {"⭐".repeat(event.severity)}
-                            </div>
-                          )}
-                        </div>
-                        <p className="mt-1 text-sm">{event.content}</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            </div>
-          </ScrollArea>
-        </div>
-
-        <div className="flex justify-between items-center p-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
-          <span className="text-xs text-muted-foreground">
-            {events.length} events
-          </span>
-          <div className="flex space-x-2">
-            <Badge
-              variant="outline"
-              className="text-blue-500 border-blue-300 text-xs"
-            >
-              <MessageCircle className="h-3 w-3 mr-1" />
-              {events.filter((e) => e.event_type === "voice").length}
-            </Badge>
-            <Badge
-              variant="outline"
-              className="text-red-500 border-red-300 text-xs"
-            >
-              <AlertTriangle className="h-3 w-3 mr-1" />
-              {events.filter((e) => e.event_type === "alert").length}
-            </Badge>
-            <Badge
-              variant="outline"
-              className="text-green-500 border-green-300 text-xs"
-            >
-              <MousePointer className="h-3 w-3 mr-1" />
-              {events.filter((e) => e.event_type === "action").length}
-            </Badge>
+                      <Badge
+                        variant={
+                          event.severity === 3
+                            ? "destructive"
+                            : event.severity === 2
+                            ? "warning"
+                            : "default"
+                        }
+                        className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0 h-4 sm:h-5"
+                      >
+                        {event.event_type === "voice"
+                          ? "语音"
+                          : event.event_type === "alert"
+                          ? "提醒"
+                          : "操作"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs sm:text-sm line-clamp-2">{event.content}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
-        </div>
+        </ScrollArea>
       </CardContent>
     </Card>
   );

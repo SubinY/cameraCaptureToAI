@@ -37,6 +37,7 @@ export function useDetectionData() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const prevMockDataRef = useRef(useMockData);
 
   // 从真实服务器获取数据
   const fetchRealData = async () => {
@@ -78,6 +79,16 @@ export function useDetectionData() {
       }
 
       const result = await response.json();
+      // 确保结果中的heatmap格式正确
+      if (result && result.attention && Array.isArray(result.attention.heatmap)) {
+        const formattedHeatmap = result.attention.heatmap.map((point: any) => {
+          if (Array.isArray(point) && point.length === 3) {
+            return point as [number, number, number];
+          }
+          return [0, 0, 0] as [number, number, number];
+        });
+        result.attention.heatmap = formattedHeatmap;
+      }
       setData(result);
     } catch (err) {
       console.error("获取检测数据失败:", err);
@@ -87,9 +98,6 @@ export function useDetectionData() {
       if (isDevelopment) {
         toast.error(`获取真实数据失败: ${err instanceof Error ? err.message : '未知错误'}`);
       }
-      
-      // 失败时回退到使用模拟数据
-      setData(generateDynamicMockData());
     } finally {
       setLoading(false);
     }
@@ -101,7 +109,20 @@ export function useDetectionData() {
     // 模拟网络延迟
     setTimeout(() => {
       const mockData = generateDynamicMockData();
-      setData(mockData);
+      // 确保heatmap格式正确
+      const formattedMockData = {
+        ...mockData,
+        attention: {
+          ...mockData.attention,
+          heatmap: mockData.attention.heatmap.map(point => {
+            if (Array.isArray(point) && point.length === 3) {
+              return point as [number, number, number];
+            }
+            return [0, 0, 0] as [number, number, number];
+          })
+        }
+      };
+      setData(formattedMockData);
       setLoading(false);
     }, 300);
   };
@@ -122,20 +143,30 @@ export function useDetectionData() {
     }
   }, [lastDetectionResult]);
 
-  // 设置数据采样定时器
+  // 设置数据采样定时器并处理模式切换
   useEffect(() => {
+    // 当从模拟模式切换到真实模式时，清空数据
+    if (prevMockDataRef.current !== useMockData && prevMockDataRef.current === true && useMockData === false) {
+      setData(null);
+    }
+    
+    // 更新之前的模式状态
+    prevMockDataRef.current = useMockData;
+    
     // 首次获取数据
     refreshData();
     
     // 定时获取数据
     intervalRef.current = setInterval(refreshData, SAMPLING_INTERVAL);
     
+    // 清理函数
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [useMockData]);
+  }, [useMockData]); // 依赖于useMockData变化
 
   return {
     data,
