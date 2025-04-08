@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import * as d3 from "d3";
 import { cn } from "@/lib/utils";
+import { useDetectionData } from "@/hooks/use-detection-data";
 
 interface EmotionData {
   emotion: "happy" | "neutral" | "sad" | "angry";
@@ -17,6 +18,9 @@ interface EmotionCardProps {
 }
 
 const EmotionCard = ({ className }: EmotionCardProps) => {
+  // 使用detection hook获取数据
+  const { data: detectionData, loading } = useDetectionData();
+
   const [data, setData] = useState<EmotionData>({
     emotion: "neutral",
     confidence: 75,
@@ -29,29 +33,23 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
   const lowConfidenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const negativeEmotionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Simulate API call for demo purposes
+  // 从检测数据更新组件状态
   useEffect(() => {
-    const fetchEmotionData = () => {
-      // Normally this would be a real API call to AliQianwenVision.detect_emotion()
-      // Simulating random emotion data for demo
-      const emotions = ["happy", "neutral", "sad", "angry"] as const;
-      const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
-      const randomConfidence = Math.floor(Math.random() * 100);
-      
+    if (detectionData && detectionData.emotion) {
       setData({
-        emotion: randomEmotion,
-        confidence: randomConfidence,
-        duration_sec: data.duration_sec + 1,
+        emotion: detectionData.emotion.emotion as EmotionData["emotion"],
+        confidence: detectionData.emotion.confidence,
+        duration_sec: detectionData.emotion.duration_sec,
       });
 
-      // Check low confidence alert
-      if (randomConfidence < 60) {
+      // 检查低置信度警报
+      if (detectionData.emotion.confidence < 60) {
         if (!isLowConfidence) {
           if (!lowConfidenceTimerRef.current) {
             lowConfidenceTimerRef.current = setTimeout(() => {
               setIsLowConfidence(true);
               lowConfidenceTimerRef.current = null;
-            }, 5000); // 5 seconds of low confidence
+            }, 5000); // 5秒低置信度后触发
           }
         }
       } else {
@@ -62,31 +60,33 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
         setIsLowConfidence(false);
       }
 
-      // Check negative emotion alert
-      if (randomEmotion === "sad" || randomEmotion === "angry") {
+      // 检查负面情绪警报
+      const isNegative = detectionData.emotion.emotion === "sad" || detectionData.emotion.emotion === "angry";
+      if (isNegative) {
         setNegativeTimer(prev => prev + 1);
         if (negativeTimer >= 30 && !isNegativeEmotion) {
           setIsNegativeEmotion(true);
-          // Trigger voice care
+          // 触发语音关怀
           const utterance = new SpeechSynthesisUtterance(
-            "I noticed you've been feeling down for a while. Would you like to take a short break?"
+            "您看起来情绪不佳，需要休息一下吗？"
           );
+          utterance.lang = "zh-CN";
           window.speechSynthesis.speak(utterance);
         }
       } else {
         setNegativeTimer(0);
         setIsNegativeEmotion(false);
       }
-    };
+    }
+  }, [detectionData, isLowConfidence, isNegativeEmotion, negativeTimer]);
 
-    const interval = setInterval(fetchEmotionData, 1000);
-    
+  // 组件卸载时清理
+  useEffect(() => {
     return () => {
-      clearInterval(interval);
       if (lowConfidenceTimerRef.current) clearTimeout(lowConfidenceTimerRef.current);
       if (negativeEmotionTimerRef.current) clearTimeout(negativeEmotionTimerRef.current);
     };
-  }, [data.duration_sec, isLowConfidence, isNegativeEmotion, negativeTimer]);
+  }, []);
 
   // D3.js visualization for confidence
   useEffect(() => {
@@ -142,7 +142,7 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
       .attr("text-anchor", "middle")
       .attr("dy", ".35em")
       .attr("class", "font-bold text-xl")
-      .text(`${data.confidence}%`);
+      .text(`${Math.round(data.confidence)}%`);
 
     // Add emotion icon/emoji
     background.append("text")
@@ -175,18 +175,18 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
 
   const getEmotionLabel = (emotion: EmotionData["emotion"]): string => {
     switch (emotion) {
-      case "happy": return "Happy";
-      case "neutral": return "Neutral";
-      case "sad": return "Sad";
-      case "angry": return "Angry";
-      default: return "Unknown";
+      case "happy": return "开心";
+      case "neutral": return "平静";
+      case "sad": return "伤心";
+      case "angry": return "生气";
+      default: return "未知";
     }
   };
 
   // Duration bar calculation
   const durationBarWidth = () => {
-    // Max duration we want to show is 2 minutes (120 seconds)
-    const maxDuration = 120;
+    // Max duration we want to show is 5 minutes (300 seconds)
+    const maxDuration = 300;
     const percentage = Math.min((data.duration_sec / maxDuration) * 100, 100);
     return `${percentage}%`;
   };
@@ -200,15 +200,16 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
     )}>
       <CardHeader className="pb-2 flex-shrink-0">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-lg md:text-xl">Emotion Analysis</CardTitle>
+          <CardTitle className="text-lg md:text-xl">情绪分析</CardTitle>
           <Badge 
             variant={data.confidence > 80 ? "default" : "outline"}
             className={cn(
               "bg-opacity-80",
-              data.confidence < 60 && "bg-amber-500"
+              data.confidence < 60 && "bg-amber-500",
+              loading && "animate-pulse"
             )}
           >
-            {data.confidence < 60 ? "Low confidence" : "Monitoring"}
+            {loading ? "加载中..." : data.confidence < 60 ? "低置信度" : "监测中"}
           </Badge>
         </div>
       </CardHeader>
@@ -223,8 +224,8 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
           
           <div className="mt-2 w-full">
             <div className="flex justify-between text-xs sm:text-sm text-muted-foreground mb-1">
-              <span>Current: {getEmotionLabel(data.emotion)}</span>
-              <span>{Math.floor(data.duration_sec)}s</span>
+              <span>当前: {getEmotionLabel(data.emotion)}</span>
+              <span>{Math.floor(data.duration_sec)}秒</span>
             </div>
             <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
               <div 
@@ -239,7 +240,7 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
           
           {isNegativeEmotion && (
             <div className="mt-3 p-2 bg-red-100 dark:bg-red-900 dark:bg-opacity-30 rounded-md text-xs sm:text-sm text-center">
-              Prolonged negative emotion detected. Consider taking a break.
+              检测到持续负面情绪，建议休息一下。
             </div>
           )}
         </div>

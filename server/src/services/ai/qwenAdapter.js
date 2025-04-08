@@ -80,6 +80,44 @@ class QwenAdapter extends BaseAdapter {
       throw error;
     }
   }
+
+  /**
+   * 发送自定义请求到通义千问VL模型
+   * @param {Object} requestData - 完整的请求数据
+   * @returns {Promise<string>} - 模型返回的原始文本
+   */
+  async sendCustomRequest(requestData) {
+    try {
+      // 确保请求数据使用正确的模型
+      requestData.model = requestData.model || this.model;
+      
+      // 发送请求到API
+      const responseData = await this.sendRequest('/chat/completions', requestData);
+
+      // 提取分析结果
+      if (
+        responseData &&
+        responseData.choices &&
+        responseData.choices.length > 0 &&
+        responseData.choices[0].message &&
+        responseData.choices[0].message.content
+      ) {
+        // 获取文本内容
+        return responseData.choices[0].message.content;
+      } else if (
+        responseData.output &&
+        responseData.output.choices &&
+        responseData.output.choices.length > 0
+      ) {
+        return responseData.output.choices[0].message.content;
+      } else {
+        throw new Error('无法从API响应中提取结果');
+      }
+    } catch (error) {
+      console.error('通义千问VL自定义请求失败:', error);
+      throw error;
+    }
+  }
 }
 
 // 创建单例实例

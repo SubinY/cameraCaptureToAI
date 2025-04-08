@@ -5,6 +5,7 @@ import { SideNav } from "@/components/side-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { MobileHeader } from "@/components/mobile-header";
 import { HistoryCard } from "@/components/analysis-cards";
+import { DebugPanel, DebugToggle } from "@/components/debug-panel";
 
 export default function Home() {
   return (
@@ -54,6 +55,10 @@ export default function Home() {
       <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
         <ModeToggle />
       </div>
+
+      {/* 调试面板和开关按钮 */}
+      <DebugPanel />
+      <DebugToggle />
     </div>
   );
 }

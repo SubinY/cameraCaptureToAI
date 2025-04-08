@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { cn } from "@/lib/utils";
+import { useDetectionData } from "@/hooks/use-detection-data";
 
 interface HeatmapPoint {
   x: number;
@@ -23,13 +24,16 @@ interface AttentionCardProps {
 
 // Define attention levels
 const ATTENTION_LEVELS = {
-  HIGH: { min: 80, label: "High focus", color: "#4CAF50" },
-  NORMAL: { min: 60, label: "Normal", color: "#2196F3" },
-  DISTRACTED: { min: 40, label: "Distracted", color: "#FFC107" },
-  LOW: { min: 0, label: "Unfocused", color: "#F44336" },
+  HIGH: { min: 80, label: "高度集中", color: "#4CAF50" },
+  NORMAL: { min: 60, label: "正常", color: "#2196F3" },
+  DISTRACTED: { min: 40, label: "分散", color: "#FFC107" },
+  LOW: { min: 0, label: "走神", color: "#F44336" },
 };
 
 const AttentionCard = ({ className }: AttentionCardProps) => {
+  // 使用detection hook获取数据
+  const { data: detectionData, loading } = useDetectionData();
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [data, setData] = useState<AttentionData>({
     heatmap: Array.from({ length: 50 }, () => ({
@@ -48,31 +52,25 @@ const AttentionCard = ({ className }: AttentionCardProps) => {
   const [currentAttention, setCurrentAttention] = useState(75);
   const [attentionHistory, setAttentionHistory] = useState<{ time: string, value: number }[]>([]);
   const [attentionLevel, setAttentionLevel] = useState(ATTENTION_LEVELS.NORMAL);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Prepare chart data
-  const chartData = Object.entries(data.time_slot).map(([time, value]) => ({
-    time,
-    value,
-  }));
-
-  // Simulate API call
+  // 从检测数据更新组件状态
   useEffect(() => {
-    const fetchAttentionData = () => {
-      // Normally this would call AliQianwenVision.calculate_attention()
+    if (detectionData && detectionData.attention) {
+      // 更新热力图和时间槽数据
+      setData({
+        heatmap: detectionData.attention.heatmap.map(point => ({
+          x: point[0],
+          y: point[1],
+          intensity: point[2]
+        })),
+        time_slot: detectionData.attention.time_slot
+      });
       
-      // Generate random attention level with some continuity
-      const newAttention = Math.max(
-        30, 
-        Math.min(
-          95,
-          currentAttention + (Math.random() - 0.5) * 15
-        )
-      );
-      
+      // 更新当前注意力值
+      const newAttention = detectionData.attention.current_attention;
       setCurrentAttention(newAttention);
       
-      // Add to history
+      // 添加到历史记录
       const now = new Date();
       const timeString = `${now.getHours()}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
       
@@ -84,19 +82,7 @@ const AttentionCard = ({ className }: AttentionCardProps) => {
         return newHistory;
       });
       
-      // Generate new random heatmap points
-      const newHeatmap = Array.from({ length: 50 }, () => ({
-        x: Math.random(),
-        y: Math.random(),
-        intensity: Math.random() * newAttention / 100,
-      }));
-      
-      setData(prev => ({
-        ...prev,
-        heatmap: newHeatmap,
-      }));
-      
-      // Determine attention level
+      // 确定注意力级别
       if (newAttention >= ATTENTION_LEVELS.HIGH.min) {
         setAttentionLevel(ATTENTION_LEVELS.HIGH);
       } else if (newAttention >= ATTENTION_LEVELS.NORMAL.min) {
@@ -106,14 +92,14 @@ const AttentionCard = ({ className }: AttentionCardProps) => {
       } else {
         setAttentionLevel(ATTENTION_LEVELS.LOW);
       }
-    };
-    
-    timeoutRef.current = setInterval(fetchAttentionData, 1000);
-    
-    return () => {
-      if (timeoutRef.current) clearInterval(timeoutRef.current);
-    };
-  }, [currentAttention]);
+    }
+  }, [detectionData]);
+
+  // Prepare chart data
+  const chartData = Object.entries(data.time_slot).map(([time, value]) => ({
+    time,
+    value,
+  }));
 
   // Draw heatmap on canvas
   useEffect(() => {
@@ -164,18 +150,19 @@ const AttentionCard = ({ className }: AttentionCardProps) => {
     )}>
       <CardHeader className="pb-2 flex-shrink-0">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-lg md:text-xl">Attention Monitoring</CardTitle>
+          <CardTitle className="text-lg md:text-xl">注意力监测</CardTitle>
           <Badge 
             variant={currentAttention >= 60 ? "default" : "outline"}
             className={cn(
               "bg-opacity-80",
+              loading && "animate-pulse",
               currentAttention < 40 && "bg-red-500 text-red-950",
               currentAttention >= 40 && currentAttention < 60 && "bg-amber-500 text-amber-950",
               currentAttention >= 60 && currentAttention < 80 && "bg-green-500 text-green-950",
               currentAttention >= 80 && "bg-blue-500 text-blue-950"
             )}
           >
-            {attentionLevel.label}
+            {loading ? "加载中..." : attentionLevel.label}
           </Badge>
         </div>
       </CardHeader>
@@ -190,12 +177,12 @@ const AttentionCard = ({ className }: AttentionCardProps) => {
           <div 
             className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black bg-opacity-50 text-white text-xs rounded"
           >
-            Focus: {Math.round(currentAttention)}%
+            注意力: {Math.round(currentAttention)}%
           </div>
         </div>
         
         <div className="h-[100px] sm:h-[110px] lg:h-[120px]">
-          <p className="text-xs text-muted-foreground mb-1">Attention Timeline</p>
+          <p className="text-xs text-muted-foreground mb-1">注意力时间线</p>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={attentionHistory}>
               <XAxis 
@@ -211,8 +198,8 @@ const AttentionCard = ({ className }: AttentionCardProps) => {
                 tickFormatter={(value) => `${value}%`}
               />
               <Tooltip 
-                formatter={(value: number) => [`${value}%`, 'Attention']}
-                labelFormatter={(label) => `Time: ${label}`}
+                formatter={(value: number) => [`${value}%`, '注意力']}
+                labelFormatter={(label) => `时间: ${label}`}
               />
               <Line 
                 type="monotone" 
@@ -239,7 +226,7 @@ const AttentionCard = ({ className }: AttentionCardProps) => {
             ))}
           </div>
           <div className="text-[10px] sm:text-xs text-muted-foreground">
-            Avg: {Math.round(
+            平均: {Math.round(
               attentionHistory.reduce((sum, item) => sum + item.value, 0) / 
               (attentionHistory.length || 1)
             )}%
@@ -248,7 +235,7 @@ const AttentionCard = ({ className }: AttentionCardProps) => {
         
         {currentAttention < 40 && (
           <div className="mt-1 p-1 sm:p-1.5 bg-red-100 dark:bg-red-900 dark:bg-opacity-20 rounded text-[10px] sm:text-xs text-center animate-pulse">
-            Attention level critically low! Consider taking a break.
+            注意力严重下降，建议短暂休息或转换任务。
           </div>
         )}
       </CardContent>

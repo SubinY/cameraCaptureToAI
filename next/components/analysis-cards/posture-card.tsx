@@ -8,6 +8,7 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { cn } from "@/lib/utils";
+import { useDetectionData } from "@/hooks/use-detection-data";
 
 interface PostureData {
   neck_angle: number; // 0-90°
@@ -24,6 +25,9 @@ interface PostureCardProps {
 }
 
 const PostureCard = ({ className }: PostureCardProps) => {
+  // 使用detection hook获取数据
+  const { data: detectionData, loading } = useDetectionData();
+  
   const [data, setData] = useState<PostureData>({
     neck_angle: 25,
     screen_distance: 65,
@@ -34,44 +38,26 @@ const PostureCard = ({ className }: PostureCardProps) => {
     distance: false,
     duration: false,
   });
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const modelRef = useRef<THREE.Group>(null);
 
-  // Simulate API call for demo purposes
+  // 从检测数据更新组件状态
   useEffect(() => {
-    const fetchPostureData = () => {
-      // Normally this would be a real API call to AliQianwenVision.detect_posture()
-      // Simulating random posture data for demo
-
-      // Neck angle varies slowly around a baseline
-      const newAngle = Math.max(5, Math.min(90, data.neck_angle + (Math.random() - 0.5) * 5));
-      
-      // Screen distance varies slowly
-      const newDistance = Math.max(30, Math.min(150, data.screen_distance + (Math.random() - 0.5) * 10));
-      
-      // Sitting duration increases with time
-      const newDuration = data.sit_duration + (1/60); // Increment by 1 second converted to minutes
-      
+    if (detectionData && detectionData.posture) {
       setData({
-        neck_angle: newAngle,
-        screen_distance: newDistance,
-        sit_duration: newDuration,
+        neck_angle: detectionData.posture.neck_angle,
+        screen_distance: detectionData.posture.screen_distance,
+        sit_duration: detectionData.posture.sit_duration,
       });
 
-      // Check warnings
+      // 检查警告
       setWarnings({
-        angle: newAngle < NORMAL_ANGLE_RANGE.min || newAngle > NORMAL_ANGLE_RANGE.max,
-        distance: newDistance < NORMAL_DISTANCE_RANGE.min,
-        duration: newDuration >= SIT_WARNING_THRESHOLD,
+        angle: detectionData.posture.neck_angle < NORMAL_ANGLE_RANGE.min || 
+               detectionData.posture.neck_angle > NORMAL_ANGLE_RANGE.max,
+        distance: detectionData.posture.screen_distance < NORMAL_DISTANCE_RANGE.min,
+        duration: detectionData.posture.sit_duration >= SIT_WARNING_THRESHOLD,
       });
-    };
-
-    intervalRef.current = setInterval(fetchPostureData, 1000); // Update every second
-    
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [data]);
+    }
+  }, [detectionData]);
 
   // Update 3D model rotation based on neck angle
   useEffect(() => {
@@ -90,18 +76,18 @@ const PostureCard = ({ className }: PostureCardProps) => {
   // Get suggestion text based on current warnings
   const getSuggestion = () => {
     if (warnings.angle && data.neck_angle < NORMAL_ANGLE_RANGE.min) {
-      return "Raise your head, you're looking down too much.";
+      return "抬头，您低头角度过大。";
     }
     if (warnings.angle && data.neck_angle > NORMAL_ANGLE_RANGE.max) {
-      return "Lower your head slightly for a better neck posture.";
+      return "略微低头，保持颈椎健康角度。";
     }
     if (warnings.distance) {
-      return "Move back from your screen. Current distance is too close.";
+      return "请远离屏幕，当前距离太近。";
     }
     if (warnings.duration) {
-      return "You've been sitting for too long. Take a short break.";
+      return "您已久坐过久，建议站起来活动一下。";
     }
-    return "Your posture looks good!";
+    return "您的姿势很好！";
   };
 
   // Calculate remaining sit time before warning
@@ -150,20 +136,21 @@ const PostureCard = ({ className }: PostureCardProps) => {
     )}>
       <CardHeader className="pb-2 flex-shrink-0">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-lg md:text-xl">Posture Monitoring</CardTitle>
+          <CardTitle className="text-lg md:text-xl">体态监测</CardTitle>
           <Badge 
             variant={!warnings.angle && !warnings.distance && !warnings.duration ? "default" : "outline"}
             className={cn(
               "bg-opacity-80",
+              loading && "animate-pulse",
               (warnings.angle || warnings.distance) && "bg-amber-500 text-amber-950",
               warnings.duration && "bg-red-500 text-red-950"
             )}
           >
-            {warnings.duration 
-              ? "Break needed" 
+            {loading ? "加载中..." : warnings.duration 
+              ? "需要休息" 
               : warnings.angle || warnings.distance 
-                ? "Adjust posture" 
-                : "Good posture"}
+                ? "调整姿势" 
+                : "姿势良好"}
           </Badge>
         </div>
       </CardHeader>
@@ -181,7 +168,7 @@ const PostureCard = ({ className }: PostureCardProps) => {
           <div className="flex flex-col justify-between">
             <div>
               <div className="flex justify-between mb-1">
-                <span className="text-xs sm:text-sm">Neck Angle</span>
+                <span className="text-xs sm:text-sm">颈部角度</span>
                 <span className={cn(
                   "text-xs sm:text-sm font-medium",
                   getIndicatorColor(data.neck_angle, NORMAL_ANGLE_RANGE.min, NORMAL_ANGLE_RANGE.max)
@@ -201,12 +188,12 @@ const PostureCard = ({ className }: PostureCardProps) => {
               />
               
               <div className="flex justify-between mt-2 mb-1">
-                <span className="text-xs sm:text-sm">Screen Distance</span>
+                <span className="text-xs sm:text-sm">屏幕距离</span>
                 <span className={cn(
                   "text-xs sm:text-sm font-medium",
                   getIndicatorColor(data.screen_distance, NORMAL_DISTANCE_RANGE.min, 150)
                 )}>
-                  {Math.round(data.screen_distance)}cm
+                  {Math.round(data.screen_distance)}厘米
                 </span>
               </div>
               <Progress 
@@ -225,12 +212,12 @@ const PostureCard = ({ className }: PostureCardProps) => {
         
         <div className="mt-2">
           <div className="flex justify-between mb-1">
-            <span className="text-xs sm:text-sm">Sit Duration</span>
+            <span className="text-xs sm:text-sm">久坐时间</span>
             <span className={cn(
               "text-xs sm:text-sm font-medium",
               warnings.duration ? "text-red-500" : "text-muted-foreground"
             )}>
-              {Math.floor(data.sit_duration)} min
+              {Math.floor(data.sit_duration)} 分钟
             </span>
           </div>
           <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 sm:h-2.5 rounded-full overflow-hidden">
@@ -248,12 +235,6 @@ const PostureCard = ({ className }: PostureCardProps) => {
           <div className="mt-2 p-1.5 sm:p-2 bg-slate-100 dark:bg-slate-800 rounded-md text-xs sm:text-sm">
             {getSuggestion()}
           </div>
-          
-          {warnings.duration && (
-            <div className="mt-1 text-center text-red-500 text-xs sm:text-sm font-medium animate-pulse">
-              Time for a break! Stand up and stretch.
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>

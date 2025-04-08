@@ -10,6 +10,28 @@ const { uploadToOSS } = require("../utils/ossClient");
 const ossConfig = require("../config/oss.config");
 
 /**
+ * 保存图像到临时文件（不上传）
+ * @param {Buffer} imageBuffer - 图像数据
+ * @param {string} prefix - 文件名前缀
+ * @returns {Promise<Object>} - 保存结果
+ */
+async function saveImage(imageBuffer, prefix = '') {
+  try {
+    // 保存图像到临时文件
+    const timestamp = Date.now();
+    const tempFilePath = saveImageToTemp(imageBuffer, prefix || `image_${timestamp}`);
+
+    return {
+      timestamp,
+      tempFilePath
+    };
+  } catch (error) {
+    console.error("保存图像失败:", error);
+    throw error;
+  }
+}
+
+/**
  * 保存并上传图像
  * @param {Buffer} imageBuffer - 图像数据
  * @param {string} prefix - 文件名前缀
@@ -51,6 +73,7 @@ function cleanupImageFile(filePath) {
 }
 
 module.exports = {
+  saveImage,
   saveAndUploadImage,
   cleanupImageFile
 };
