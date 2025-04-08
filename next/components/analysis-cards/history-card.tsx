@@ -37,21 +37,6 @@ const HistoryCard = ({ className }: HistoryCardProps) => {
 
   // Simulate event generation
   useEffect(() => {
-    // Clear events when switching from mock to real mode
-    if (prevMockDataRef.current !== useMockData) {
-      setEvents([]);
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-    }
-    prevMockDataRef.current = useMockData;
-
-    // Only generate mock events if in mock mode
-    if (!useMockData) {
-      return;
-    }
-
     // Initial load
     const initialEvents: InteractionEvent[] = [
       {
@@ -76,9 +61,9 @@ const HistoryCard = ({ className }: HistoryCardProps) => {
         severity: 2,
       },
     ];
-
+    
     setEvents(initialEvents);
-
+    
     // Simulate periodic events
     const eventTypes = ["voice", "alert", "action"] as const;
     const voiceContents = [
@@ -102,27 +87,23 @@ const HistoryCard = ({ className }: HistoryCardProps) => {
       "Paused monitoring temporarily",
       "Enabled voice notifications",
     ];
-
+    
     const generateRandomEvent = (): InteractionEvent => {
-      const eventType =
-        eventTypes[Math.floor(Math.random() * eventTypes.length)];
+      const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
       let content = "";
       let severity: 1 | 2 | 3 = 1;
-
+      
       if (eventType === "voice") {
-        content =
-          voiceContents[Math.floor(Math.random() * voiceContents.length)];
+        content = voiceContents[Math.floor(Math.random() * voiceContents.length)];
         severity = 1;
       } else if (eventType === "alert") {
-        content =
-          alertContents[Math.floor(Math.random() * alertContents.length)];
+        content = alertContents[Math.floor(Math.random() * alertContents.length)];
         severity = Math.random() > 0.7 ? 3 : 2;
       } else {
-        content =
-          actionContents[Math.floor(Math.random() * actionContents.length)];
+        content = actionContents[Math.floor(Math.random() * actionContents.length)];
         severity = 1;
       }
-
+      
       return {
         id: `event-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         timestamp: new Date().toISOString(),
@@ -131,52 +112,46 @@ const HistoryCard = ({ className }: HistoryCardProps) => {
         severity,
       };
     };
-
+    
     // Add new event every 5-15 seconds
     const scheduleNextEvent = () => {
       const randomDelay = 5000 + Math.random() * 10000;
       timeoutRef.current = setTimeout(() => {
         const newEvent = generateRandomEvent();
-        setEvents((prev) => {
+        setEvents(prev => {
           // 始终将新事件放在第一位，同时保持类型分类但保留时间顺序
           const allEvents = [newEvent, ...prev];
-
+          
           // 分类但不需要分别截取，只保留最近的25条总记录
           let filteredEvents: InteractionEvent[] = [];
-
+          
           // 优先保留严重警报
-          const severeAlerts = allEvents.filter(
-            (e) => e.event_type === "alert" && e.severity === 3
-          );
+          const severeAlerts = allEvents.filter(e => e.event_type === "alert" && e.severity === 3);
           filteredEvents = [...filteredEvents, ...severeAlerts];
-
+          
           // 剩余空间用于其他普通事件，但保持时间顺序
           const remainingEvents = allEvents
-            .filter((e) => !(e.event_type === "alert" && e.severity === 3))
+            .filter(e => !(e.event_type === "alert" && e.severity === 3))
             .slice(0, 25 - severeAlerts.length);
-
+          
           filteredEvents = [...filteredEvents, ...remainingEvents];
-
+          
           // 按时间顺序排序，最新的在最前面
-          return filteredEvents.sort(
-            (a, b) =>
-              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          return filteredEvents.sort((a, b) => 
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
         });
-
+        
         scheduleNextEvent();
-      }, 2000);
+      }, randomDelay);
     };
-
+    
     scheduleNextEvent();
-
+    
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [useMockData]);
+  }, []); // 空依赖数组，确保只在组件挂载时执行一次
 
   // Format relative time
   const formatRelativeTime = (timestamp: string) => {
@@ -305,7 +280,7 @@ _Generated at ${now.toLocaleTimeString()}_
       </CardHeader>
       <CardContent className="p-0 sm:p-2 flex-1 overflow-hidden">
         <ScrollArea ref={scrollAreaRef} className="h-full">
-          <div className="p-2 sm:p-3 space-y-2 sm:space-y-3">
+          <div className="p-2 sm:p-3 space-y-2 sm:space-y-3 max-h-[260px]">
             <AnimatePresence mode="popLayout">
               {events.map((event) => (
                 <motion.div
