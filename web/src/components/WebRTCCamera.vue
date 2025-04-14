@@ -70,7 +70,10 @@ const initWebRTC = async () => {
 
     // 连接状态变化
     peerConnection.onconnectionstatechange = () => {
-      connectionStatus.value = `连接状态: ${peerConnection?.connectionState}`
+      const newStatus = `连接状态: ${peerConnection?.connectionState}`
+      if (newStatus !== connectionStatus.value) {
+        connectionStatus.value = newStatus
+      }
     }
 
     // WebSocket事件处理
@@ -91,13 +94,21 @@ const initWebRTC = async () => {
     })
     
     socket.on('connect', () => {
-      connectionStatus.value = '已连接到服务器'
-      isConnected.value = true
+      if (connectionStatus.value !== '已连接到服务器') {
+        connectionStatus.value = '已连接到服务器'
+      }
+      if (!isConnected.value) {
+        isConnected.value = true
+      }
     })
     
     socket.on('disconnect', () => {
-      connectionStatus.value = '已断开连接'
-      isConnected.value = false
+      if (connectionStatus.value !== '已断开连接') {
+        connectionStatus.value = '已断开连接'
+      }
+      if (isConnected.value) {
+        isConnected.value = false
+      }
       stopCapture()
     })
 
@@ -105,7 +116,9 @@ const initWebRTC = async () => {
       try {
         if (peerConnection) {
           await peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
-          connectionStatus.value = '已建立WebRTC连接'
+          if (connectionStatus.value !== '已建立WebRTC连接') {
+            connectionStatus.value = '已建立WebRTC连接'
+          }
         }
       } catch (error) {
         console.error('设置远程描述失败:', error)
@@ -124,9 +137,10 @@ const initWebRTC = async () => {
     })
 
     socket.on('analysis-result', (data) => {
-      console.log('收到分析结果:', data)
-      // 触发事件通知父组件更新UI
-      emit('analysis-result', data)
+      // 防止不必要的更新，只在数据真正变化时才触发事件
+      if (data && (data.result?.description || data.statistics)) {
+        emit('analysis-result', data)
+      }
     })
 
     // 加入WebRTC会话
@@ -140,7 +154,6 @@ const initWebRTC = async () => {
 
 // 捕获视频帧并发送到服务器
 const captureFrame = () => {
-  console.log(videoRef, 'videoRef')
   if (!videoRef.value || !canvasRef.value || !socket) return
   
   const video = videoRef.value
@@ -149,9 +162,11 @@ const captureFrame = () => {
   
   if (!context) return
   
-  // 设置canvas尺寸与视频相同
-  canvas.width = video.videoWidth
-  canvas.height = video.videoHeight
+  // 只在第一次设置canvas尺寸
+  if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+  }
   
   // 在canvas上绘制当前视频帧
   context.drawImage(video, 0, 0, canvas.width, canvas.height)
@@ -204,13 +219,17 @@ onUnmounted(() => {
   stopCapture()
   if (peerConnection) {
     peerConnection.close()
+    peerConnection = null
   }
   if (socket) {
+    socket.removeAllListeners()
     socket.disconnect()
+    socket = null
   }
   if (videoRef.value?.srcObject) {
     const stream = videoRef.value.srcObject as MediaStream
     stream.getTracks().forEach(track => track.stop())
+    videoRef.value.srcObject = null
   }
 })
 </script>

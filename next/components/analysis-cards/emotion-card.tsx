@@ -60,25 +60,29 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
         setIsLowConfidence(false);
       }
 
-      // 检查负面情绪警报
+      // 检查负面情绪
       const isNegative = detectionData.emotion.emotion === "sad" || detectionData.emotion.emotion === "angry";
       if (isNegative) {
         setNegativeTimer(prev => prev + 1);
-        if (negativeTimer >= 30 && !isNegativeEmotion) {
-          setIsNegativeEmotion(true);
-          // 触发语音关怀
-          const utterance = new SpeechSynthesisUtterance(
-            "您看起来情绪不佳，需要休息一下吗？"
-          );
-          utterance.lang = "zh-CN";
-          window.speechSynthesis.speak(utterance);
-        }
       } else {
         setNegativeTimer(0);
         setIsNegativeEmotion(false);
       }
     }
-  }, [detectionData, isLowConfidence, isNegativeEmotion, negativeTimer]);
+  }, [detectionData, isLowConfidence]);
+
+  // 处理负面情绪计时器
+  useEffect(() => {
+    if (negativeTimer >= 30 && !isNegativeEmotion) {
+      setIsNegativeEmotion(true);
+      // 触发语音关怀
+      const utterance = new SpeechSynthesisUtterance(
+        "您看起来情绪不佳，需要休息一下吗？"
+      );
+      utterance.lang = "zh-CN";
+      window.speechSynthesis.speak(utterance);
+    }
+  }, [negativeTimer, isNegativeEmotion]);
 
   // 组件卸载时清理
   useEffect(() => {
