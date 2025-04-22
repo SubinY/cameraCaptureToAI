@@ -52,6 +52,7 @@ const AttentionCard = ({ className }: AttentionCardProps) => {
   const [currentAttention, setCurrentAttention] = useState(75);
   const [attentionHistory, setAttentionHistory] = useState<{ time: string, value: number }[]>([]);
   const [attentionLevel, setAttentionLevel] = useState(ATTENTION_LEVELS.NORMAL);
+  const attentionHistoryRef = useRef<{ time: string, value: number }[]>([]);
 
   // 从检测数据更新组件状态
   useEffect(() => {
@@ -74,24 +75,27 @@ const AttentionCard = ({ className }: AttentionCardProps) => {
       const now = new Date();
       const timeString = `${now.getHours()}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
       
-      setAttentionHistory(prev => {
-        const newHistory = [...prev, { time: timeString, value: newAttention }];
-        if (newHistory.length > 20) {
-          return newHistory.slice(-20);
-        }
-        return newHistory;
-      });
+      // 使用ref来避免依赖prev的问题
+      const newHistory = [...attentionHistoryRef.current, { time: timeString, value: newAttention }];
+      if (newHistory.length > 20) {
+        attentionHistoryRef.current = newHistory.slice(-20);
+      } else {
+        attentionHistoryRef.current = newHistory;
+      }
+      setAttentionHistory(attentionHistoryRef.current);
       
       // 确定注意力级别
+      let newAttentionLevel;
       if (newAttention >= ATTENTION_LEVELS.HIGH.min) {
-        setAttentionLevel(ATTENTION_LEVELS.HIGH);
+        newAttentionLevel = ATTENTION_LEVELS.HIGH;
       } else if (newAttention >= ATTENTION_LEVELS.NORMAL.min) {
-        setAttentionLevel(ATTENTION_LEVELS.NORMAL);
+        newAttentionLevel = ATTENTION_LEVELS.NORMAL;
       } else if (newAttention >= ATTENTION_LEVELS.DISTRACTED.min) {
-        setAttentionLevel(ATTENTION_LEVELS.DISTRACTED);
+        newAttentionLevel = ATTENTION_LEVELS.DISTRACTED;
       } else {
-        setAttentionLevel(ATTENTION_LEVELS.LOW);
+        newAttentionLevel = ATTENTION_LEVELS.LOW;
       }
+      setAttentionLevel(newAttentionLevel);
     }
   }, [detectionData]);
 
@@ -243,4 +247,4 @@ const AttentionCard = ({ className }: AttentionCardProps) => {
   );
 };
 
-export default AttentionCard; 
+export { AttentionCard }; 

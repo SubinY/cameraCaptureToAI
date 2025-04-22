@@ -1,18 +1,21 @@
 "use client"
 
 import { useState } from "react"
-import { Home, MapPin, Music, Thermometer, Shield, User } from "lucide-react"
+import { Home, MapPin, Music, Thermometer, Shield, User, BarChart, Beaker } from "lucide-react"
 import { cn } from "@/lib/utils"
+import Link from "next/link"
 
 export function SideNav() {
   const [activeItem, setActiveItem] = useState("home")
 
   const navItems = [
-    { id: "home", icon: Home },
-    { id: "location", icon: MapPin },
-    { id: "music", icon: Music },
-    { id: "climate", icon: Thermometer },
-    { id: "security", icon: Shield },
+    { id: "home", icon: Home, href: "/" },
+    { id: "location", icon: MapPin, href: "#" },
+    { id: "music", icon: Music, href: "#" },
+    { id: "climate", icon: Thermometer, href: "#" },
+    { id: "security", icon: Shield, href: "#" },
+    { id: "model-evaluation", icon: BarChart, href: "/model-evaluation" },
+    { id: "advanced-test", icon: Beaker, href: "/advanced-test" },
   ]
 
   return (
@@ -29,8 +32,9 @@ export function SideNav() {
         {navItems.map((item) => {
           const Icon = item.icon
           return (
-            <button
+            <Link
               key={item.id}
+              href={item.href}
               onClick={() => setActiveItem(item.id)}
               className={cn(
                 "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 card-border",
@@ -42,7 +46,7 @@ export function SideNav() {
               <Icon
                 className={cn("h-5 w-5 transition-all duration-300", activeItem === item.id && "animate-pulse-subtle")}
               />
-            </button>
+            </Link>
           )
         })}
       </div>

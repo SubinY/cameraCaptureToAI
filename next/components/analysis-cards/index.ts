@@ -1,7 +1,7 @@
-import EmotionCard from "./emotion-card";
-import PostureCard from "./posture-card";
-import AttentionCard from "./attention-card";
-import HistoryCard from "./history-card";
+import { EmotionCard } from "./emotion-card";
+import { PostureCard } from "./posture-card";
+import { AttentionCard } from "./attention-card";
+import { HistoryCard } from "./history-card";
 
 export {
   EmotionCard,

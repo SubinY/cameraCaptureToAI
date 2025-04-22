@@ -241,4 +241,4 @@ const PostureCard = ({ className }: PostureCardProps) => {
   );
 };
 
-export default PostureCard; 
+export { PostureCard }; 

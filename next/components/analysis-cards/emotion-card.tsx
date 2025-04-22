@@ -32,6 +32,8 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const lowConfidenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const negativeEmotionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // 添加一个ref来跟踪负面情绪状态，避免在useEffect中直接使用state导致循环
+  const isNegativeEmotionRef = useRef(false);
 
   // 从检测数据更新组件状态
   useEffect(() => {
@@ -44,41 +46,52 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
 
       // 检查低置信度警报
       if (detectionData.emotion.confidence < 60) {
-        if (!isLowConfidence) {
-          if (!lowConfidenceTimerRef.current) {
-            lowConfidenceTimerRef.current = setTimeout(() => {
-              setIsLowConfidence(true);
-              lowConfidenceTimerRef.current = null;
-            }, 5000); // 5秒低置信度后触发
-          }
+        if (!isLowConfidence && !lowConfidenceTimerRef.current) {
+          lowConfidenceTimerRef.current = setTimeout(() => {
+            setIsLowConfidence(true);
+            lowConfidenceTimerRef.current = null;
+          }, 5000); // 5秒低置信度后触发
         }
       } else {
         if (lowConfidenceTimerRef.current) {
           clearTimeout(lowConfidenceTimerRef.current);
           lowConfidenceTimerRef.current = null;
         }
-        setIsLowConfidence(false);
+        if (isLowConfidence) {
+          setIsLowConfidence(false);
+        }
       }
 
       // 检查负面情绪警报
       const isNegative = detectionData.emotion.emotion === "sad" || detectionData.emotion.emotion === "angry";
       if (isNegative) {
-        setNegativeTimer(prev => prev + 1);
-        if (negativeTimer >= 30 && !isNegativeEmotion) {
-          setIsNegativeEmotion(true);
-          // 触发语音关怀
-          const utterance = new SpeechSynthesisUtterance(
-            "您看起来情绪不佳，需要休息一下吗？"
-          );
-          utterance.lang = "zh-CN";
-          window.speechSynthesis.speak(utterance);
-        }
+        // 使用函数式更新确保我们使用的是最新状态
+        setNegativeTimer(prev => {
+          const nextValue = prev + 1;
+          // 在这里检查阈值，而不是在单独的useEffect中
+          if (nextValue >= 30 && !isNegativeEmotionRef.current) {
+            isNegativeEmotionRef.current = true;
+            setIsNegativeEmotion(true);
+            // 触发语音关怀
+            const utterance = new SpeechSynthesisUtterance(
+              "您看起来情绪不佳，需要休息一下吗？"
+            );
+            utterance.lang = "zh-CN";
+            window.speechSynthesis.speak(utterance);
+          }
+          return nextValue;
+        });
       } else {
-        setNegativeTimer(0);
-        setIsNegativeEmotion(false);
+        if (negativeTimer !== 0) {
+          setNegativeTimer(0);
+        }
+        if (isNegativeEmotionRef.current) {
+          isNegativeEmotionRef.current = false;
+          setIsNegativeEmotion(false);
+        }
       }
     }
-  }, [detectionData, isLowConfidence, isNegativeEmotion, negativeTimer]);
+  }, [detectionData]); // 移除isLowConfidence, isNegativeEmotion, negativeTimer依赖
 
   // 组件卸载时清理
   useEffect(() => {
@@ -249,4 +262,4 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
   );
 };
 
-export default EmotionCard; 
+export { EmotionCard }; 

@@ -340,3 +340,5 @@ _Generated at ${now.toLocaleTimeString()}_
 };
 
 export default HistoryCard;
+
+export { HistoryCard };
