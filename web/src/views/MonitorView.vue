@@ -52,8 +52,18 @@ const getBehaviorName = (key: string) => {
 }
 
 const handleAnalysisResult = (result: any) => {
-  currentBehavior.value = result.result.description
-  statistics.value = result.statistics
+  if (result.result?.description !== currentBehavior.value) {
+    currentBehavior.value = result.result?.description || ''
+  }
+  
+  const newStats = result.statistics || {}
+  const hasChanges = Object.keys(newStats).some(key => {
+    return !statistics.value[key] || statistics.value[key].count !== newStats[key].count
+  })
+  
+  if (hasChanges) {
+    statistics.value = newStats
+  }
 }
 </script>
 

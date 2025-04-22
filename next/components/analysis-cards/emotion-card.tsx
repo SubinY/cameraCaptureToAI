@@ -62,7 +62,7 @@ const EmotionCard = ({ className }: EmotionCardProps) => {
         }
       }
 
-      // 检查负面情绪警报
+      // 检查负面情绪
       const isNegative = detectionData.emotion.emotion === "sad" || detectionData.emotion.emotion === "angry";
       if (isNegative) {
         // 使用函数式更新确保我们使用的是最新状态
